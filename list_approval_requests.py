@@ -14,6 +14,7 @@ from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from google.auth.exceptions import DefaultCredentialsError
 from halo import Halo
+import curses
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -116,7 +117,7 @@ def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> Li
     """
     try:
         parent = f'projects/{project_id}'
-        logger.debug(f"Making API request with parent: {parent}")  # Using debug level explicitly
+        logger.debug(f"Making API request with parent: {parent}")
 
         spinner = Halo(text='Fetching approval requests...', spinner='dots')
         spinner.start()
@@ -130,13 +131,17 @@ def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> Li
             while request is not None:
                 try:
                     response = request.execute()
-                    logger.debug(f"Received response: {json.dumps(response, indent=2)}")
+                    logger.debug(f"Raw API response: {json.dumps(response, indent=2)}")
+
                     requests = response.get('approvalRequests', [])
+                    logger.debug(f"Found {len(requests)} requests in response")
 
                     # Filter locally if state is specified
                     if state != 'ALL':
                         # Treat requests without state as PENDING
-                        requests = [r for r in requests if (r.get('state', 'PENDING') == state)]
+                        filtered_requests = [r for r in requests if (r.get('state', 'PENDING') == state)]
+                        logger.debug(f"Filtered to {len(filtered_requests)} requests with state '{state}'")
+                        requests = filtered_requests
 
                     approval_requests.extend(requests)
                     request = client.projects().approvalRequests().list_next(
@@ -150,6 +155,8 @@ def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> Li
                         logger.error(f"Response status: {e.resp.status}")
                         logger.error(f"Response headers: {e.resp.headers}")
                     raise
+
+            logger.debug(f"Total requests after filtering: {len(approval_requests)}")
             spinner.succeed('Successfully retrieved approval requests')
             return approval_requests
 
@@ -163,15 +170,7 @@ def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> Li
     except HttpError as e:
         error_details = json.loads(e.content.decode())
         error_message = f"API request failed for project {project_id}: {error_details.get('error', {}).get('message', 'Unknown error')}"
-        if 'SERVICE_DISABLED' in str(e):
-            error_message += (
-                "\nThe Access Approval API is not enabled for this project. To enable it:\n"
-                "1. Visit the Google Cloud Console:\n"
-                "   https://console.cloud.google.com/apis/library/accessapproval.googleapis.com\n"
-                "2. Select your project and click 'Enable'\n"
-                "3. Wait a few minutes for the change to take effect\n"
-                "4. Run this script again\n"
-            )
+        logger.error(f"API Error: {error_message}")
         raise Exception(error_message)
 
 def display_approval_requests(approval_requests: List[Dict], state: str):
@@ -431,6 +430,17 @@ def export_requests(requests: List[Dict], format: str, output_path: str = None):
         logger.error(f"Failed to export requests: {str(e)}")
         raise
 
+def check_terminal_requirements():
+    """Check if the terminal meets the minimum requirements for interactive mode."""
+    try:
+        import curses
+        stdscr = curses.initscr()
+        curses.endwin()
+        return True
+    except Exception as e:
+        logger.error(f"Terminal check failed: {e}")
+        return False
+
 def main():
     """
     Main function to list and manage approval requests.
@@ -449,6 +459,12 @@ def main():
                 formatter = logging.Formatter('%(levelname)s: %(message)s')
                 handler.setFormatter(formatter)
                 logger.addHandler(handler)
+
+        # Check terminal capabilities if interactive mode is requested
+        if args.interactive and not check_terminal_requirements():
+            print("Error: Your terminal does not support the interactive mode.", file=sys.stderr)
+            print("Please try running without the --interactive flag.", file=sys.stderr)
+            sys.exit(1)
 
         # Set up authentication
         auth_spinner = Halo(text='Authenticating with Google Cloud...', spinner='dots')
@@ -518,27 +534,57 @@ def main():
 
         if args.interactive:
             from interactive_viewer import view_requests
-            result = view_requests(approval_requests)
-            if result:
-                request_name = result['request']['name']
-                if result['action'] == 'approve':
-                    if approve_request(client, request_name):
-                        print(f"Successfully approved request: {request_name}")
+            viewer = None
+            try:
+                while True:  # Keep the interactive session running
+                    # Initialize viewer with current requests
+                    if viewer is None:
+                        result = view_requests(approval_requests)
                     else:
-                        print(f"Failed to approve request: {request_name}", file=sys.stderr)
-                        sys.exit(1)
-                elif result['action'] == 'dismiss':
-                    if dismiss_request(client, request_name):
-                        print(f"Successfully dismissed request: {request_name}")
-                    else:
-                        print(f"Failed to dismiss request: {request_name}", file=sys.stderr)
-                        sys.exit(1)
-                elif result['action'] == 'revoke':
-                    if revoke_request(client, request_name):
-                        print(f"Successfully revoked request: {request_name}")
-                    else:
-                        print(f"Failed to revoke request: {request_name}", file=sys.stderr)
-                        sys.exit(1)
+                        # Re-use existing viewer
+                        result = curses.wrapper(lambda stdscr: viewer.run(stdscr))
+
+                    if not result:  # User quit the viewer or error occurred
+                        break
+
+                    request_name = result['request']['name']
+                    success = False
+
+                    if result['action'] == 'approve':
+                        success = approve_request(client, request_name)
+                        if success:
+                            print(f"Successfully approved request: {request_name}")
+                        else:
+                            print(f"Failed to approve request: {request_name}", file=sys.stderr)
+                    elif result['action'] == 'dismiss':
+                        success = dismiss_request(client, request_name)
+                        if success:
+                            print(f"Successfully dismissed request: {request_name}")
+                        else:
+                            print(f"Failed to dismiss request: {request_name}", file=sys.stderr)
+                    elif result['action'] == 'revoke':
+                        success = revoke_request(client, request_name)
+                        if success:
+                            print(f"Successfully revoked request: {request_name}")
+                        else:
+                            print(f"Failed to revoke request: {request_name}", file=sys.stderr)
+
+                    # Refresh the requests list after action
+                    if success:
+                        approval_requests = get_approval_requests(client, project_id, args.state)
+                        if viewer:
+                            viewer.update_requests(approval_requests)
+                    # Clear the screen before re-entering interactive mode
+                    print("\033[2J\033[H", end='')  # ANSI escape sequence to clear screen
+
+            except Exception as e:
+                logger.error(f"Error in interactive mode: {e}")
+                if args.debug:
+                    import traceback
+                    traceback.print_exc()
+            finally:
+                if viewer:
+                    viewer.clean_up()
             return
 
         # Export or display results
@@ -560,6 +606,9 @@ def main():
 
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
+        if args.debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":

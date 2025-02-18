@@ -12,6 +12,16 @@
     },
     "requestTime": "2025-02-18T16:59:49.201935Z",
     "requestedExpiration": "2025-02-23T16:59:48.617Z",
+    "approve": {
+      "approveTime": "2025-02-18T19:08:11.722504Z",
+      "expireTime": "2025-02-23T16:59:48.617Z",
+      "signatureInfo": {
+        "signature": "MEQCIHS6NhBX8YSo1eRPwdRKe0cXGvQg7tgohO9vq3mlm95rAiBAiq/lygfp8nAj4io6+By2X7wHd5aD5k4vldK2T7pI7Q==",
+        "googlePublicKeyPem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJPlTW4vcYTbgj1Rrtv/Fk4auUwqN\npVP4zKw5S46TseLzn6JKzjDgtsEmrwQLywKcr8ZiOoJo4xGNFOu3qHZhlA==\n-----END PUBLIC KEY-----\n",
+        "googleKeyAlgorithm": "EC_SIGN_P256_SHA256",
+        "serializedApprovalRequest": "Cj1wcm9qZWN0cy8zMjAzMDYzNjE2NjQvYXBwcm92YWxSZXF1ZXN0cy9WQS00dVNhdFJ3bVFCMlRHM29EekJnEi4vL3N0b3JhZ2UuZ29vZ2xlYXBpcy5jb20vcHJvamVjdHMvMzIwMzA2MzYxNjY0GhkIARIVQ2FzZSBOdW1iZXI6IDU3MTUyMzExIgoKA0FOWRIDQU5ZKgsIhfnSvQYQmJGlYDIMCISo7b0GEMDYmqYCOhwKDAibtdO9BhDAksLYAhIMCISo7b0GEMDYmqYCSgBaBAiArxo="
+      }
+    },
     "requestedResourceProperties": {},
     "requestedDuration": "432000s"
   },
@@ -28,6 +38,16 @@
     },
     "requestTime": "2025-02-18T16:43:47.341729Z",
     "requestedExpiration": "2025-02-23T16:43:46.729Z",
+    "approve": {
+      "approveTime": "2025-02-18T19:14:36.544776Z",
+      "expireTime": "2025-02-23T16:43:46.729Z",
+      "signatureInfo": {
+        "signature": "MEUCIGi2D6Vqy2HJlOpKvIa7I4LnHp2q4Dd5Ic+PqM2PGvb0AiEAp4EVZywctVToi2+nGud7WQOhyrwqh+XbK5pLBzvNCNM=",
+        "googlePublicKeyPem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEJPlTW4vcYTbgj1Rrtv/Fk4auUwqN\npVP4zKw5S46TseLzn6JKzjDgtsEmrwQLywKcr8ZiOoJo4xGNFOu3qHZhlA==\n-----END PUBLIC KEY-----\n",
+        "googleKeyAlgorithm": "EC_SIGN_P256_SHA256",
+        "serializedApprovalRequest": "Cj1wcm9qZWN0cy8zMjAzMDYzNjE2NjQvYXBwcm92YWxSZXF1ZXN0cy91VlU1enJKMVN4Vzk4QzYyNVAzMU1BEjsvL2Nsb3VkcmVzb3VyY2VtYW5hZ2VyLmdvb2dsZWFwaXMuY29tL3Byb2plY3RzLzMyMDMwNjM2MTY2NBoZCAESFUNhc2UgTnVtYmVyOiA1NzE1MjMxMSIKCgNBTlkSA0FOWSoMCMPx0r0GEOi9+aIBMgwIwqDtvQYQwNDO2wI6HAoMCJy4070GEMC+4oMCEgwIwqDtvQYQwNDO2wJKAFoECICvGg=="
+      }
+    },
     "requestedResourceProperties": {},
     "requestedDuration": "432000s"
   }

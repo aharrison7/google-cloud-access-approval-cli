@@ -237,7 +237,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python list_approval_requests.py --interactive"
+args = "python list_approval_requests.py --interactive --debug"
 
 [[workflows.workflow]]
 name = "Run Tests"
