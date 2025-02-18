@@ -1,17 +1,27 @@
 [project]
-name = "repl-nix-workspace"
+name = "google-cloud-access-approval-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python CLI tool for managing Google Access Approval API requests with enhanced user experience"
 requires-python = ">=3.11"
 dependencies = [
     "google-api-python-client>=2.161.0",
     "google-auth-oauthlib>=1.2.1",
     "google-auth>=2.38.0",
     "pytest>=8.3.4",
-    "trafilatura>=2.0.0",
-    "flask-login>=0.6.3",
-    "oauthlib>=3.2.2",
-    "flask-wtf>=1.2.2",
-    "twilio>=9.4.5",
     "halo>=0.0.31",
 ]
+
+[project.urls]
+Homepage = "https://github.com/aharrison7/google-cloud-access-approval-cli"
+Issues = "https://github.com/aharrison7/google-cloud-access-approval-cli/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["list_approval_requests", "interactive_viewer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

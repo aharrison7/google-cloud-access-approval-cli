@@ -1,6 +1,10 @@
+git clone https://github.com/aharrison7/google-cloud-access-approval-cli.git
+   cd google-cloud-access-approval-cli
+   ```
+
 2. Install required Python packages:
    ```bash
-   pip install google-auth google-api-python-client
+   pip install google-auth google-api-python-client google-auth-oauthlib halo
    ```
 
 3. Enable the Access Approval API:
@@ -9,50 +13,101 @@
 
 ## Usage
 
-Run the script with optional state filter:
-```bash
-python list_approval_requests.py [--state STATE]
-```
+### Basic Commands
 
-Available states:
-- `PENDING` (default): Show pending approval requests (includes new requests without explicit state)
-- `APPROVED`: Show only approved requests
-- `DISMISSED`: Show only dismissed requests
-- `ALL`: Show all requests regardless of state
-
-Example:
 ```bash
-# List all pending requests (default)
+# List pending approval requests (default)
 python list_approval_requests.py
-
-# List all approved requests
-python list_approval_requests.py --state APPROVED
 
 # List all requests regardless of state
 python list_approval_requests.py --state ALL
+
+# List approved requests
+python list_approval_requests.py --state APPROVED
+
+# List dismissed requests
+python list_approval_requests.py --state DISMISSED
+
+# Export requests to JSON
+python list_approval_requests.py --state ALL --export json --output requests.json
+
+# Export requests to CSV
+python list_approval_requests.py --state ALL --export csv --output requests.csv
+
+# Launch interactive viewer
+python list_approval_requests.py --interactive
+
+# Enable debug output
+python list_approval_requests.py --debug
 ```
 
-### Expected Output
+### Request Management
 
-The script will display approval requests in a formatted output:
+```bash
+# Approve a request
+python list_approval_requests.py --approve projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]
+
+# Dismiss a request
+python list_approval_requests.py --dismiss projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]
+
+# Revoke an approved request
+python list_approval_requests.py --revoke projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]
+```
+
+### Interactive Viewer Controls
+
+When using the interactive viewer (`--interactive`):
+- ↑/↓: Navigate through requests
+- a: Approve selected request
+- d: Dismiss selected request
+- r: Revoke selected request
+- q: Quit viewer
+
+## Output Format
+
+The tool displays approval requests in a formatted output:
+
 ```
 Approval Requests (State: PENDING):
---------------------------------------------------------------------------------
+================================================================================
 Request Name: projects/123456789/approvalRequests/abcd1234
 State: PENDING
 Request Time: 2025-02-18 10:30:00 UTC
-Requested Resource: //compute.googleapis.com/projects/...
-Requested Reason: CUSTOMER_INITIATED_SUPPORT
-Reason Detail: Case Number: 12345  # If detail is provided
-Expiration Time: 2025-02-19 10:30:00 UTC
-Requested Locations:  # If locations are specified
-  principalOfficeCountry: ANY
-  principalPhysicalLocationCountry: ANY
---------------------------------------------------------------------------------
+
+Resource Details:
+  Requested Resource: //compute.googleapis.com/projects/test
+
+Request Context:
+  Type: CUSTOMER_INITIATED_SUPPORT
+  Detail: Case Number: 12345
+
+Time Details:
+  Created: 2025-02-18 10:30:00 UTC
+  Expires: 2025-02-19 10:30:00 UTC
+================================================================================
 ```
 
-Note: New approval requests from the API might not have an explicit state field. These requests are treated as "PENDING" since they are awaiting approval. When displaying such requests, the State field will show as "N/A" in the output, but they will be included when filtering for "PENDING" state.
+## Development
 
-If no requests are found for the specified state, you'll see:
-```
-No approval requests found with state 'PENDING'.
+### Prerequisites
+
+- Python 3.11 or higher
+- Google Cloud project with Access Approval API enabled
+- Appropriate IAM permissions for managing access approval requests
+
+### Setting Up Development Environment
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/aharrison7/google-cloud-access-approval-cli.git
+   cd google-cloud-access-approval-cli
+   ```
+
+2. Install development dependencies:
+   ```bash
+   pip install -e ".[dev]"
+   ```
+
+3. Run tests:
+   ```bash
+   pytest tests/

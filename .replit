@@ -4,72 +4,22 @@ modules = ["python-3.11"]
 channel = "stable-24_05"
 
 [workflows]
-runButton = "List Approval Requests"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
 mode = "parallel"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "List Approval Requests"
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
 
 [[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Approve Request"
+task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "List and Export"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Approve Request with Enhanced Errors"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "CSV Export Test"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "View All Requests"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Filtered Export Test"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Revoke Request"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Dismiss Request"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Revoke Approved Request"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Approve Then Revoke Test"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Approve and Revoke"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Progress Spinners"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Spinner with Approval"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Test Interactive Viewer"
+task = "shell.exec"
+args = "ls -la"
 
 [[workflows.workflow]]
 name = "List Approval Requests"
