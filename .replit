@@ -51,6 +51,26 @@ args = "Test Dismiss Request"
 task = "workflow.run"
 args = "Test Revoke Approved Request"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Approve Then Revoke Test"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Approve and Revoke"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Progress Spinners"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Spinner with Approval"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Test Interactive Viewer"
+
 [[workflows.workflow]]
 name = "List Approval Requests"
 author = "agent"
@@ -190,6 +210,76 @@ task = "packager.installForAll"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python list_approval_requests.py --revoke projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ --debug"
+
+[[workflows.workflow]]
+name = "Approve Then Revoke Test"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python list_approval_requests.py --approve projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ && python list_approval_requests.py --revoke projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ --debug"
+
+[[workflows.workflow]]
+name = "Test Approve and Revoke"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python list_approval_requests.py --state ALL && python list_approval_requests.py --approve projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ && python list_approval_requests.py --revoke projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ --debug"
+
+[[workflows.workflow]]
+name = "Test Progress Spinners"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python list_approval_requests.py --state ALL"
+
+[[workflows.workflow]]
+name = "Test Spinner with Approval"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python list_approval_requests.py --approve projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ"
+
+[[workflows.workflow]]
+name = "Test Interactive Viewer"
+author = "agent"
+
+[workflows.workflow.metadata]
+agentRequireRestartOnSave = false
+
+[[workflows.workflow.tasks]]
+task = "packager.installForAll"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python list_approval_requests.py --interactive"
 
 [deployment]
 run = ["sh", "-c", "python list_approval_requests.py --state ALL"]
