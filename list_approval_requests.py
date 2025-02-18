@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import argparse
 from typing import List, Dict
 from datetime import datetime
 import google.auth
@@ -10,6 +11,16 @@ from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from google.auth.exceptions import DefaultCredentialsError
+
+def parse_arguments():
+    """
+    Parse command line arguments.
+    """
+    parser = argparse.ArgumentParser(description='List Google Cloud Access Approval requests')
+    parser.add_argument('--state', choices=['PENDING', 'APPROVED', 'DISMISSED', 'ALL'],
+                      default='PENDING',
+                      help='Filter requests by state (default: PENDING)')
+    return parser.parse_args()
 
 def setup_credentials():
     """
@@ -77,17 +88,27 @@ def format_timestamp(timestamp: str) -> str:
     except ValueError:
         return timestamp
 
-def get_approval_requests(client, project_id: str) -> List[Dict]:
+def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> List[Dict]:
     """
-    Retrieve all open approval requests for the project.
+    Retrieve approval requests for the project filtered by state.
+
+    Args:
+        client: The API client instance
+        project_id: The Google Cloud project ID
+        state: Filter state ('PENDING', 'APPROVED', 'DISMISSED', or 'ALL')
     """
     try:
         parent = f'projects/{project_id}'
         print(f"Making API request with parent: {parent}")
-        request = client.projects().approvalRequests().list(
-            parent=parent,
-            filter='state=PENDING'  # Updated filter syntax without quotes
-        )
+
+        # Construct filter based on state
+        filter_param = f'state={state}' if state != 'ALL' else None
+        request_kwargs = {'parent': parent}
+        if filter_param:
+            request_kwargs['filter'] = filter_param
+            print(f"Applying filter: {filter_param}")
+
+        request = client.projects().approvalRequests().list(**request_kwargs)
 
         approval_requests = []
         while request is not None:
@@ -102,6 +123,9 @@ def get_approval_requests(client, project_id: str) -> List[Dict]:
             except HttpError as e:
                 error_details = json.loads(e.content.decode())
                 print(f"Error details: {json.dumps(error_details, indent=2)}")
+                if hasattr(e, 'resp'):
+                    print(f"Response status: {e.resp.status}")
+                    print(f"Response headers: {e.resp.headers}")
                 raise
 
         return approval_requests
@@ -119,20 +143,21 @@ def get_approval_requests(client, project_id: str) -> List[Dict]:
             )
         raise Exception(error_message)
 
-
-def display_approval_requests(approval_requests: List[Dict]):
+def display_approval_requests(approval_requests: List[Dict], state: str):
     """
     Format and display approval requests in a readable format.
     """
     if not approval_requests:
-        print("\nNo pending approval requests found.")
+        state_msg = f" with state '{state}'" if state != 'ALL' else ""
+        print(f"\nNo approval requests found{state_msg}.")
         return
 
-    print("\nPending Approval Requests:")
+    print(f"\nApproval Requests{' (State: ' + state + ')' if state != 'ALL' else ''}:")
     print("-" * 80)
 
     for request in approval_requests:
         print(f"Request Name: {request.get('name', 'N/A')}")
+        print(f"State: {request.get('state', 'N/A')}")
         print(f"Request Time: {format_timestamp(request.get('requestTime', 'N/A'))}")
         print(f"Requested Resource: {request.get('requestedResourceName', 'N/A')}")
         print(f"Requested Reason: {request.get('requestedReason', {}).get('type', 'N/A')}")
@@ -146,9 +171,12 @@ def display_approval_requests(approval_requests: List[Dict]):
 
 def main():
     """
-    Main function to list open approval requests.
+    Main function to list approval requests.
     """
     try:
+        # Parse command line arguments
+        args = parse_arguments()
+
         # Set up authentication
         print("Authenticating with Google Cloud...")
         credentials, project_id = setup_credentials()
@@ -159,10 +187,10 @@ def main():
 
         # Get approval requests
         print(f"Fetching approval requests for project: {project_id}")
-        approval_requests = get_approval_requests(client, project_id)
+        approval_requests = get_approval_requests(client, project_id, args.state)
 
         # Display results
-        display_approval_requests(approval_requests)
+        display_approval_requests(approval_requests, args.state)
 
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

@@ -27,7 +27,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python list_approval_requests.py"
+args = "python list_approval_requests.py --state ALL"
 
 [deployment]
-run = ["sh", "-c", "python list_approval_requests.py"]
+run = ["sh", "-c", "python list_approval_requests.py --state ALL"]
