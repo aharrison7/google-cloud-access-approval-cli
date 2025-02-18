@@ -12,6 +12,33 @@
    - Select your project and click 'Enable'
 4. Create a service account for your project and generate JSON credentials. Give this Access Approval permissions to get and approve Access Approvals
 
+## Authentication
+
+You can authenticate using either your Google Cloud user account (recommended) or a service account:
+
+### Option 1: User Account Authentication (OAuth 2.0)
+
+1. Set up OAuth 2.0 credentials:
+   - Go to [Google Cloud Console > APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials)
+   - Click "Create Credentials" > "OAuth client ID"
+   - Choose "Desktop application" as the application type
+   - Download the client configuration file
+   - Rename it to `client_secret.json` and place it in the same directory as the script
+
+2. Run any command, and you'll be prompted to authenticate in your browser
+
+### Option 2: Service Account Authentication
+
+1. Create a service account key:
+   - Go to [IAM & Admin > Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+   - Create or select a service account
+   - Create a new key (JSON format)
+
+2. Set the environment variable:
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+   ```
+
 ## Usage
 
 ### Basic Commands
