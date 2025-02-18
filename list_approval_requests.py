@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import argparse
+import logging
 from typing import List, Dict
 from datetime import datetime
 import google.auth
@@ -11,6 +12,10 @@ from google.oauth2 import service_account
 from googleapiclient import discovery
 from googleapiclient.errors import HttpError
 from google.auth.exceptions import DefaultCredentialsError
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def parse_arguments():
     """
@@ -20,6 +25,8 @@ def parse_arguments():
     parser.add_argument('--state', choices=['PENDING', 'APPROVED', 'DISMISSED', 'ALL'],
                       default='PENDING',
                       help='Filter requests by state (default: PENDING)')
+    parser.add_argument('--debug', action='store_true',
+                      help='Enable debug output')
     return parser.parse_args()
 
 def setup_credentials():
@@ -99,35 +106,36 @@ def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> Li
     """
     try:
         parent = f'projects/{project_id}'
-        print(f"Making API request with parent: {parent}")
+        logger.debug(f"Making API request with parent: {parent}")
 
-        # Construct filter based on state
-        filter_param = f'state={state}' if state != 'ALL' else None
+        # List requests without filter first
         request_kwargs = {'parent': parent}
-        if filter_param:
-            request_kwargs['filter'] = filter_param
-            print(f"Applying filter: {filter_param}")
-
         request = client.projects().approvalRequests().list(**request_kwargs)
 
         approval_requests = []
         while request is not None:
             try:
                 response = request.execute()
-                print(f"Received response: {json.dumps(response, indent=2)}")
-                approval_requests.extend(response.get('approvalRequests', []))
+                logger.debug(f"Received response: {json.dumps(response, indent=2)}")
+                requests = response.get('approvalRequests', [])
+
+                # Filter locally if state is specified
+                if state != 'ALL':
+                    # Treat requests without state as PENDING
+                    requests = [r for r in requests if (r.get('state', 'PENDING') == state)]
+
+                approval_requests.extend(requests)
                 request = client.projects().approvalRequests().list_next(
                     previous_request=request,
                     previous_response=response
                 )
             except HttpError as e:
                 error_details = json.loads(e.content.decode())
-                print(f"Error details: {json.dumps(error_details, indent=2)}")
+                logger.error(f"Error details: {json.dumps(error_details, indent=2)}")
                 if hasattr(e, 'resp'):
-                    print(f"Response status: {e.resp.status}")
-                    print(f"Response headers: {e.resp.headers}")
+                    logger.error(f"Response status: {e.resp.status}")
+                    logger.error(f"Response headers: {e.resp.headers}")
                 raise
-
         return approval_requests
     except HttpError as e:
         error_details = json.loads(e.content.decode())
@@ -160,12 +168,31 @@ def display_approval_requests(approval_requests: List[Dict], state: str):
         print(f"State: {request.get('state', 'N/A')}")
         print(f"Request Time: {format_timestamp(request.get('requestTime', 'N/A'))}")
         print(f"Requested Resource: {request.get('requestedResourceName', 'N/A')}")
-        print(f"Requested Reason: {request.get('requestedReason', {}).get('type', 'N/A')}")
 
-        expire_time = request.get('requestedExpiration', {}).get('expireTime', 'N/A')
+        # Handle nested requestedReason object
+        requested_reason = request.get('requestedReason', {})
+        reason_type = requested_reason.get('type', 'N/A')
+        reason_detail = requested_reason.get('detail', '')
+        print(f"Requested Reason: {reason_type}")
+        if reason_detail:
+            print(f"Reason Detail: {reason_detail}")
+
+        # Handle expiration time, which can be either a string or a dictionary
+        expiration = request.get('requestedExpiration', 'N/A')
+        if isinstance(expiration, dict):
+            expire_time = expiration.get('expireTime', 'N/A')
+        else:
+            expire_time = expiration
         if expire_time != 'N/A':
             expire_time = format_timestamp(expire_time)
         print(f"Expiration Time: {expire_time}")
+
+        # Display requested locations if present
+        requested_locations = request.get('requestedLocations', {})
+        if requested_locations:
+            print("Requested Locations:")
+            for key, value in requested_locations.items():
+                print(f"  {key}: {value}")
 
         print("-" * 80)
 
@@ -177,16 +204,20 @@ def main():
         # Parse command line arguments
         args = parse_arguments()
 
+        # Set logging level based on debug flag
+        if args.debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+
         # Set up authentication
-        print("Authenticating with Google Cloud...")
+        logger.info("Authenticating with Google Cloud...")
         credentials, project_id = setup_credentials()
 
         # Initialize API client
-        print("Initializing Access Approval API client...")
+        logger.info("Initializing Access Approval API client...")
         client = initialize_api_client(credentials)
 
         # Get approval requests
-        print(f"Fetching approval requests for project: {project_id}")
+        logger.info(f"Fetching approval requests for project: {project_id}")
         approval_requests = get_approval_requests(client, project_id, args.state)
 
         # Display results

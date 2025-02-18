@@ -1,6 +1,3 @@
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
-   ```
-
 2. Install required Python packages:
    ```bash
    pip install google-auth google-api-python-client
@@ -18,7 +15,7 @@ python list_approval_requests.py [--state STATE]
 ```
 
 Available states:
-- `PENDING` (default): Show only pending approval requests
+- `PENDING` (default): Show pending approval requests (includes new requests without explicit state)
 - `APPROVED`: Show only approved requests
 - `DISMISSED`: Show only dismissed requests
 - `ALL`: Show all requests regardless of state
@@ -46,9 +43,15 @@ State: PENDING
 Request Time: 2025-02-18 10:30:00 UTC
 Requested Resource: //compute.googleapis.com/projects/...
 Requested Reason: CUSTOMER_INITIATED_SUPPORT
+Reason Detail: Case Number: 12345  # If detail is provided
 Expiration Time: 2025-02-19 10:30:00 UTC
+Requested Locations:  # If locations are specified
+  principalOfficeCountry: ANY
+  principalPhysicalLocationCountry: ANY
 --------------------------------------------------------------------------------
 ```
+
+Note: New approval requests from the API might not have an explicit state field. These requests are treated as "PENDING" since they are awaiting approval. When displaying such requests, the State field will show as "N/A" in the output, but they will be included when filtering for "PENDING" state.
 
 If no requests are found for the specified state, you'll see:
 ```
