@@ -14,37 +14,35 @@ class RequestViewer:
         self.detail_window = None
         self.status_window = None
 
-    def format_timestamp(self, timestamp: str) -> str:
-        """Format API timestamp to human-readable format."""
-        try:
-            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-            return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-        except ValueError:
-            return timestamp
-
     def create_windows(self, stdscr):
         """Initialize the curses windows."""
         height, width = curses.LINES, curses.COLS
 
         # Initialize color pairs
         curses.start_color()
-        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
-        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)  # Selected item
+        curses.init_pair(2, curses.COLOR_WHITE, -1)  # Normal text
+        curses.init_pair(3, curses.COLOR_BLUE, -1)   # Headers
 
         # Create main window for request list (1/3 of screen width)
-        list_width = max(20, min(width // 3, 40))
+        list_width = max(30, min(width // 3, 50))  # Increased minimum width
         self.window = curses.newwin(height - 2, list_width, 0, 0)
-        self.window.keypad(True)
+        if self.window:
+            self.window.keypad(True)
 
         # Create detail window (remaining width)
-        detail_width = width - list_width - 1
-        self.detail_window = curses.newwin(height - 2, detail_width, 0, list_width + 1)
+        detail_width = width - list_width
+        self.detail_window = curses.newwin(height - 2, detail_width, 0, list_width)
 
         # Create status window at bottom
         self.status_window = curses.newwin(2, width, height - 2, 0)
 
     def safe_addstr(self, window, y: int, x: int, text: str, attr=0):
         """Safely add a string to a window, handling boundaries and errors."""
+        if not window:
+            return
+
         try:
             height, width = window.getmaxyx()
             if y < 0 or x < 0 or y >= height or x >= width:
@@ -58,6 +56,14 @@ class RequestViewer:
             window.addstr(y, x, text, attr)
         except curses.error:
             pass
+
+    def format_timestamp(self, timestamp: str) -> str:
+        """Format API timestamp to human-readable format."""
+        try:
+            dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            return dt.strftime('%Y-%m-%d %H:%M:%S UTC')
+        except ValueError:
+            return timestamp
 
     def wrap_text(self, text: str, width: int) -> List[str]:
         """Wrap text to fit within specified width."""
@@ -87,11 +93,15 @@ class RequestViewer:
 
         # Display header
         header = " Requests "
-        self.safe_addstr(self.window, 0, (width - len(header)) // 2, header, curses.A_BOLD)
+        self.safe_addstr(self.window, 0, (width - len(header)) // 2, header, 
+                        curses.color_pair(3) | curses.A_BOLD)
+
+        # Calculate available space for list items
+        list_height = height - 2  # Account for borders
+        list_width = width - 4    # Account for borders and padding
 
         # Display requests
-        max_items = height - 2  # Account for borders
-        for i in range(min(max_items, len(self.requests))):
+        for i in range(min(list_height, len(self.requests))):
             idx = i + self.top_line
             if idx >= len(self.requests):
                 break
@@ -99,10 +109,22 @@ class RequestViewer:
             request = self.requests[idx]
             # Get the request ID (last part of the name)
             name = request.get('name', 'N/A').split('/')[-1]
-            display_text = f" {name}"
 
-            attr = curses.A_REVERSE if idx == self.current_index else 0
-            self.safe_addstr(self.window, i + 1, 1, display_text.ljust(width - 2), attr)
+            # Format display text
+            display_text = f" {name} "
+            if len(display_text) > list_width:
+                display_text = display_text[:list_width-3] + "..."
+
+            # Clear line first
+            self.window.move(i + 1, 1)
+            self.window.clrtoeol()
+
+            # Highlight selected item
+            attr = curses.color_pair(1) if idx == self.current_index else curses.color_pair(2)
+
+            # Fill entire line width for better highlighting
+            padding = " " * (list_width - len(display_text))
+            self.safe_addstr(self.window, i + 1, 1, display_text + padding, attr)
 
         self.window.refresh()
 
@@ -117,12 +139,14 @@ class RequestViewer:
 
         # Display header
         header = " Request Details "
-        self.safe_addstr(self.detail_window, 0, (width - len(header)) // 2, header, curses.A_BOLD)
+        self.safe_addstr(self.detail_window, 0, (width - len(header)) // 2, header, 
+                        curses.color_pair(3) | curses.A_BOLD)
 
         y = 1
         indent = 2
-        content_width = width - indent - 2
+        content_width = width - 2 * indent  # Double indent for better readability
 
+        # Define sections with their content
         sections = [
             ("Basic Information", [
                 ("Name", request.get('name', 'N/A')),
@@ -138,34 +162,50 @@ class RequestViewer:
             ])
         ]
 
+        # Add locations if present
         locations = request.get('requestedLocations', {})
         if locations:
-            location_items = [
-                (key.replace('principal', 'Principal ').replace('Country', ' Country'),
-                 value)
-                for key, value in locations.items()
-            ]
-            sections.append(("Locations", location_items))
+            location_items = []
+            for key, value in locations.items():
+                formatted_key = key.replace('principal', 'Principal ').replace('Country', ' Country')
+                location_items.append((formatted_key, value))
+            if location_items:
+                sections.append(("Locations", location_items))
 
+        # Display each section
         for section_title, items in sections:
             if y >= height - 2:
                 break
 
-            self.safe_addstr(self.detail_window, y, indent, section_title + ":", curses.A_BOLD)
+            # Display section header
+            self.safe_addstr(self.detail_window, y, indent, section_title + ":", 
+                           curses.color_pair(3) | curses.A_BOLD)
             y += 1
 
+            # Display items in section
             for label, value in items:
                 if y >= height - 2:
                     break
 
-                if label == "Resource" or label == "Name":  # Special handling for long values
-                    for line in self.wrap_text(f"{label}: {value}", content_width):
-                        if y >= height - 2:
-                            break
-                        self.safe_addstr(self.detail_window, y, indent + 2, line)
-                        y += 1
-                else:
-                    self.safe_addstr(self.detail_window, y, indent + 2, f"{label}: {value}")
+                # Format the label
+                label_text = f"{label}: "
+                self.safe_addstr(self.detail_window, y, indent + 2, label_text)
+
+                # Handle multiline values
+                value_indent = indent + 2 + len(label_text)
+                available_width = content_width - len(label_text)
+                wrapped_lines = self.wrap_text(str(value), available_width)
+
+                for i, line in enumerate(wrapped_lines):
+                    if y >= height - 2:
+                        break
+                    if i == 0:
+                        self.safe_addstr(self.detail_window, y, value_indent, line)
+                    else:
+                        self.safe_addstr(self.detail_window, y, value_indent, line)
+                    y += 1
+
+                if not wrapped_lines:  # If value was empty
                     y += 1
 
             y += 1  # Add space between sections
@@ -180,45 +220,45 @@ class RequestViewer:
         self.status_window.clear()
         self.status_window.box()
         status_text = "↑/↓: Navigate | q: Quit | a: Approve | d: Dismiss | r: Revoke"
-        self.safe_addstr(self.status_window, 0, 2, status_text)
+        self.safe_addstr(self.status_window, 0, 2, status_text, curses.A_BOLD)
         self.status_window.refresh()
 
     def run(self, stdscr) -> Optional[Dict]:
-        """Run the interactive viewer. Returns the selected request and action if any."""
+        """Run the interactive viewer."""
         try:
             curses.curs_set(0)  # Hide cursor
-            curses.use_default_colors()  # Use terminal's default colors
             self.create_windows(stdscr)
 
             while True:
                 try:
-                    self.display_request_list()
-                    if self.requests:
-                        self.display_request_details(self.requests[self.current_index])
-                    self.display_status()
+                    if self.window:
+                        self.display_request_list()
+                        if self.requests:
+                            self.display_request_details(self.requests[self.current_index])
+                        self.display_status()
 
-                    # Handle key input
-                    key = self.window.getch()
-                    if key == ord('q'):
-                        return None
-                    elif key == curses.KEY_UP and self.current_index > 0:
-                        self.current_index -= 1
-                        if self.current_index < self.top_line:
-                            self.top_line = self.current_index
-                    elif key == curses.KEY_DOWN and self.current_index < len(self.requests) - 1:
-                        self.current_index += 1
-                        if self.current_index >= self.top_line + (curses.LINES - 4):
-                            self.top_line += 1
-                    elif key in [ord('a'), ord('d'), ord('r')] and self.requests:
-                        action = {
-                            ord('a'): 'approve',
-                            ord('d'): 'dismiss',
-                            ord('r'): 'revoke'
-                        }[key]
-                        return {
-                            'action': action,
-                            'request': self.requests[self.current_index]
-                        }
+                        # Handle key input
+                        key = self.window.getch()
+                        if key == ord('q'):
+                            return None
+                        elif key == curses.KEY_UP and self.current_index > 0:
+                            self.current_index -= 1
+                            if self.current_index < self.top_line:
+                                self.top_line = self.current_index
+                        elif key == curses.KEY_DOWN and self.current_index < len(self.requests) - 1:
+                            self.current_index += 1
+                            if self.current_index >= self.top_line + (curses.LINES - 4):
+                                self.top_line += 1
+                        elif key in [ord('a'), ord('d'), ord('r')] and self.requests:
+                            action = {
+                                ord('a'): 'approve',
+                                ord('d'): 'dismiss',
+                                ord('r'): 'revoke'
+                            }[key]
+                            return {
+                                'action': action,
+                                'request': self.requests[self.current_index]
+                            }
 
                 except curses.error:
                     continue

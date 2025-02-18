@@ -113,15 +113,10 @@ def format_timestamp(timestamp: str) -> str:
 def get_approval_requests(client, project_id: str, state: str = 'PENDING') -> List[Dict]:
     """
     Retrieve approval requests for the project filtered by state.
-
-    Args:
-        client: The API client instance
-        project_id: The Google Cloud project ID
-        state: Filter state ('PENDING', 'APPROVED', 'DISMISSED', or 'ALL')
     """
     try:
         parent = f'projects/{project_id}'
-        logger.debug(f"Making API request with parent: {parent}")
+        logger.debug(f"Making API request with parent: {parent}")  # Using debug level explicitly
 
         spinner = Halo(text='Fetching approval requests...', spinner='dots')
         spinner.start()
@@ -198,34 +193,16 @@ def display_approval_requests(approval_requests: List[Dict], state: str):
         print(f"Request Time: {format_timestamp(request.get('requestTime', 'N/A'))}")
 
         # Resource Information
-        print("\nResource Details:")
-        print(f"  Requested Resource: {request.get('requestedResourceName', 'N/A')}")
-        resource_properties = request.get('requestedResourceProperties', {})
-        if resource_properties:
-            print("  Resource Properties:")
-            for key, value in resource_properties.items():
-                print(f"    {key}: {value}")
+        print(f"Requested Resource: {request.get('requestedResourceName', 'N/A')}")
 
         # Request Reason
-        print("\nRequest Context:")
         requested_reason = request.get('requestedReason', {})
-        reason_type = requested_reason.get('type', 'N/A')
-        reason_detail = requested_reason.get('detail', '')
-        print(f"  Type: {reason_type}")
-        if reason_detail:
-            print(f"  Detail: {reason_detail}")
-
-        # Location Information
-        requested_locations = request.get('requestedLocations', {})
-        if requested_locations:
-            print("\nRequested Locations:")
-            for key, value in requested_locations.items():
-                formatted_key = key.replace('principal', 'Principal ').replace('Country', ' Country')
-                print(f"  {formatted_key}: {value}")
+        print(f"Requested Reason: {requested_reason.get('type', 'N/A')}")
+        if requested_reason.get('detail'):
+            print(f"Reason Detail: {requested_reason.get('detail')}")
 
         # Time Information
-        print("\nTime Details:")
-        print(f"  Created: {format_timestamp(request.get('requestTime', 'N/A'))}")
+        print(f"Request Time: {format_timestamp(request.get('requestTime', 'N/A'))}")
 
         # Handle expiration time, which can be either a string or a dictionary
         expiration = request.get('requestedExpiration', 'N/A')
@@ -235,36 +212,7 @@ def display_approval_requests(approval_requests: List[Dict], state: str):
             expire_time = expiration
         if expire_time != 'N/A':
             expire_time = format_timestamp(expire_time)
-        print(f"  Expires: {expire_time}")
-
-        requested_duration = request.get('requestedDuration', 'N/A')
-        if requested_duration != 'N/A':
-            # Convert duration from seconds string (e.g., "432000s") to human-readable format
-            try:
-                duration_seconds = int(requested_duration.rstrip('s'))
-                days = duration_seconds // 86400
-                hours = (duration_seconds % 86400) // 3600
-                duration_str = f"{days} days, {hours} hours"
-                print(f"  Duration: {duration_str}")
-            except (ValueError, AttributeError):
-                print(f"  Duration: {requested_duration}")
-
-        # Approval Information
-        approve_info = request.get('approve', {})
-        if approve_info:
-            print("\nApproval Details:")
-            print(f"  Approved Time: {format_timestamp(approve_info.get('approveTime', 'N/A'))}")
-            print(f"  Approval Expiration: {format_timestamp(approve_info.get('expireTime', 'N/A'))}")
-
-            # Include signature information if present
-            signature_info = approve_info.get('signatureInfo', {})
-            if signature_info:
-                print("  Signature Information:")
-                print(f"    Algorithm: {signature_info.get('googleKeyAlgorithm', 'N/A')}")
-                # Only show first 32 chars of signature for security
-                signature = signature_info.get('signature', '')
-                if signature:
-                    print(f"    Signature: {signature[:32]}...")
+        print(f"Expiration Time: {expire_time}")
 
         print("=" * 100)
 
@@ -493,7 +441,14 @@ def main():
 
         # Set logging level based on debug flag
         if args.debug:
-            logging.getLogger().setLevel(logging.DEBUG)
+            logger.setLevel(logging.DEBUG)
+            # Add a StreamHandler if none exists
+            if not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setLevel(logging.DEBUG)
+                formatter = logging.Formatter('%(levelname)s: %(message)s')
+                handler.setFormatter(formatter)
+                logger.addHandler(handler)
 
         # Set up authentication
         auth_spinner = Halo(text='Authenticating with Google Cloud...', spinner='dots')
