@@ -1,4 +1,4 @@
-git clone https://github.com/aharrison7/google-cloud-access-approval-cli.git
+1. git clone https://github.com/aharrison7/google-cloud-access-approval-cli.git
    cd google-cloud-access-approval-cli
    ```
 
@@ -10,6 +10,7 @@ git clone https://github.com/aharrison7/google-cloud-access-approval-cli.git
 3. Enable the Access Approval API:
    - Visit [Google Cloud Console - Access Approval API](https://console.cloud.google.com/apis/library/accessapproval.googleapis.com)
    - Select your project and click 'Enable'
+4. Create a service account for your project and generate JSON credentials. Give this Access Approval permissions to get and approve Access Approvals
 
 ## Usage
 
