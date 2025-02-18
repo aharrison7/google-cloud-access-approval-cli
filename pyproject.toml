@@ -8,4 +8,8 @@ dependencies = [
     "google-auth-oauthlib>=1.2.1",
     "google-auth>=2.38.0",
     "pytest>=8.3.4",
+    "trafilatura>=2.0.0",
+    "flask-login>=0.6.3",
+    "oauthlib>=3.2.2",
+    "flask-wtf>=1.2.2",
 ]

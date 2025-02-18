@@ -1,0 +1,50 @@
+[
+  {
+    "name": "projects/320306361664/approvalRequests/kHtUYaYOTPO3PGjXPvJheQ",
+    "requestedResourceName": "//iam.googleapis.com/projects/320306361664",
+    "requestedReason": {
+      "type": "CUSTOMER_INITIATED_SUPPORT",
+      "detail": "Case Number: 57152311"
+    },
+    "requestedLocations": {
+      "principalOfficeCountry": "ANY",
+      "principalPhysicalLocationCountry": "ANY"
+    },
+    "requestTime": "2025-02-18T16:17:31.127222Z",
+    "requestedExpiration": "2025-02-23T16:17:30.468Z",
+    "requestedResourceProperties": {},
+    "requestedDuration": "432000s"
+  },
+  {
+    "name": "projects/320306361664/approvalRequests/VNwhklpeReOLFlsc_IepRw",
+    "requestedResourceName": "//iam.googleapis.com/projects/320306361664",
+    "requestedReason": {
+      "type": "CUSTOMER_INITIATED_SUPPORT",
+      "detail": "Case Number: 57152311"
+    },
+    "requestedLocations": {
+      "principalOfficeCountry": "ANY",
+      "principalPhysicalLocationCountry": "ANY"
+    },
+    "requestTime": "2025-02-18T16:17:27.459550Z",
+    "requestedExpiration": "2025-02-23T16:17:26.820Z",
+    "requestedResourceProperties": {},
+    "requestedDuration": "432000s"
+  },
+  {
+    "name": "projects/320306361664/approvalRequests/FpnTVWvZSyK39c5JFrgwnA",
+    "requestedResourceName": "//orgpolicy.googleapis.com/projects/320306361664",
+    "requestedReason": {
+      "type": "CUSTOMER_INITIATED_SUPPORT",
+      "detail": "Case Number: 57152311"
+    },
+    "requestedLocations": {
+      "principalOfficeCountry": "ANY",
+      "principalPhysicalLocationCountry": "ANY"
+    },
+    "requestTime": "2025-02-18T16:13:16.297236Z",
+    "requestedExpiration": "2025-02-23T16:13:15.651Z",
+    "requestedResourceProperties": {},
+    "requestedDuration": "432000s"
+  }
+]

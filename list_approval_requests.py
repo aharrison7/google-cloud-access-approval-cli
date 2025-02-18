@@ -5,6 +5,7 @@ import sys
 import json
 import argparse
 import logging
+import csv
 from typing import List, Dict
 from datetime import datetime
 import google.auth
@@ -21,10 +22,21 @@ def parse_arguments():
     """
     Parse command line arguments.
     """
-    parser = argparse.ArgumentParser(description='List Google Cloud Access Approval requests')
+    parser = argparse.ArgumentParser(description='List and manage Google Cloud Access Approval requests')
     parser.add_argument('--state', choices=['PENDING', 'APPROVED', 'DISMISSED', 'ALL'],
                       default='PENDING',
                       help='Filter requests by state (default: PENDING)')
+    parser.add_argument('--approve',
+                      help='Approve a specific request by name (e.g., projects/123/approvalRequests/abc)')
+    parser.add_argument('--dismiss',
+                      help='Dismiss a pending request by name (e.g., projects/123/approvalRequests/abc)')
+    parser.add_argument('--revoke',
+                      help='Revoke an approved request by name (e.g., projects/123/approvalRequests/abc)')
+    parser.add_argument('--export',
+                      choices=['json', 'csv'],
+                      help='Export the results in specified format')
+    parser.add_argument('--output',
+                      help='Output file path for export (default: approval_requests.<format>)')
     parser.add_argument('--debug', action='store_true',
                       help='Enable debug output')
     return parser.parse_args()
@@ -196,9 +208,253 @@ def display_approval_requests(approval_requests: List[Dict], state: str):
 
         print("-" * 80)
 
+def approve_request(client, request_name: str) -> bool:
+    """
+    Approve a specific access request.
+
+    Args:
+        client: The API client instance
+        request_name: Full name of the request to approve (e.g., projects/123/approvalRequests/abc)
+
+    Returns:
+        bool: True if approval was successful, False otherwise
+    """
+    try:
+        logger.info(f"Approving request: {request_name}")
+        approve_body = {
+            'expireTime': None  # Let the system use the default expiration time
+        }
+        response = client.projects().approvalRequests().approve(
+            name=request_name,
+            body=approve_body
+        ).execute()
+        logger.info(f"Successfully approved request. New state: {response.get('state', 'UNKNOWN')}")
+        return True
+    except HttpError as e:
+        error_details = json.loads(e.content.decode())
+        error_message = error_details.get('error', {}).get('message', 'Unknown error')
+        error_code = error_details.get('error', {}).get('code')
+
+        if error_code == 403:  # Permission denied
+            error_message = (
+                f"Permission denied: {error_message}\n\n"
+                "To approve access requests, you need the following IAM permissions:\n"
+                "1. accessapproval.approvalRequests.approve\n"
+                "2. accessapproval.settings.update\n\n"
+                "To grant these permissions:\n"
+                "1. Visit the IAM & Admin console:\n"
+                "   https://console.cloud.google.com/iam-admin/iam\n"
+                "2. Find your account or service account\n"
+                "3. Add the 'Access Approval Admin' role\n"
+                "   (or add the specific permissions listed above)\n\n"
+                "For more information, see:\n"
+                "https://cloud.google.com/access-approval/docs/access-control"
+            )
+        elif error_code == 404:  # Request not found
+            error_message = (
+                f"Request not found: {error_message}\n"
+                "The specified approval request may have expired or been deleted.\n"
+                "Use --state ALL to list all available requests."
+            )
+        elif error_code == 400:  # Invalid request
+            error_message = (
+                f"Invalid request: {error_message}\n"
+                "Please check that the request name is in the correct format:\n"
+                "projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]"
+            )
+
+        logger.error(f"Failed to approve request: {error_message}")
+        return False
+
+def dismiss_request(client, request_name: str) -> bool:
+    """
+    Dismiss a pending access request.
+
+    Args:
+        client: The API client instance
+        request_name: Full name of the request to dismiss (e.g., projects/123/approvalRequests/abc)
+
+    Returns:
+        bool: True if dismissal was successful, False otherwise
+    """
+    try:
+        logger.info(f"Dismissing request: {request_name}")
+        response = client.projects().approvalRequests().dismiss(
+            name=request_name
+        ).execute()
+        logger.info(f"Successfully dismissed request. New state: {response.get('state', 'UNKNOWN')}")
+        return True
+    except HttpError as e:
+        error_details = json.loads(e.content.decode())
+        error_message = error_details.get('error', {}).get('message', 'Unknown error')
+        error_code = error_details.get('error', {}).get('code')
+
+        if error_code == 403:  # Permission denied
+            error_message = (
+                f"Permission denied: {error_message}\n\n"
+                "To dismiss access requests, you need the following IAM permissions:\n"
+                "1. accessapproval.approvalRequests.dismiss\n"
+                "2. accessapproval.settings.update\n\n"
+                "To grant these permissions:\n"
+                "1. Visit the IAM & Admin console:\n"
+                "   https://console.cloud.google.com/iam-admin/iam\n"
+                "2. Find your account or service account\n"
+                "3. Add the 'Access Approval Admin' role\n"
+                "   (or add the specific permissions listed above)\n\n"
+                "For more information, see:\n"
+                "https://cloud.google.com/access-approval/docs/access-control"
+            )
+        elif error_code == 404:  # Request not found
+            error_message = (
+                f"Request not found: {error_message}\n"
+                "The specified approval request may have expired or been deleted.\n"
+                "Use --state ALL to list all available requests."
+            )
+        elif error_code == 400:  # Invalid request
+            error_message = (
+                f"Invalid request: {error_message}\n"
+                "Please check that the request name is in the correct format:\n"
+                "projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]"
+            )
+        elif error_code == 409:  # Conflict
+            error_message = (
+                f"Conflict error: {error_message}\n"
+                "This usually means the request is already in a final state (DISMISSED or APPROVED)\n"
+                "or the request has expired."
+            )
+
+        logger.error(f"Failed to dismiss request: {error_message}")
+        return False
+
+def revoke_request(client, request_name: str) -> bool:
+    """
+    Revoke an approved access request.
+
+    Args:
+        client: The API client instance
+        request_name: Full name of the request to revoke (e.g., projects/123/approvalRequests/abc)
+
+    Returns:
+        bool: True if revocation was successful, False otherwise
+    """
+    try:
+        logger.info(f"Revoking approved request: {request_name}")
+        # First, verify the request is in approved state
+        request = client.projects().approvalRequests().get(
+            name=request_name
+        ).execute()
+
+        if request.get('state') != 'APPROVED':
+            error_message = (
+                f"Cannot revoke request that is not in APPROVED state.\n"
+                f"Current state: {request.get('state', 'UNKNOWN')}\n"
+                "Only approved requests can be revoked."
+            )
+            logger.error(error_message)
+            return False
+
+        response = client.projects().approvalRequests().invalidate(
+            name=request_name
+        ).execute()
+        logger.info(f"Successfully revoked request. New state: {response.get('state', 'UNKNOWN')}")
+        return True
+    except HttpError as e:
+        error_details = json.loads(e.content.decode())
+        error_message = error_details.get('error', {}).get('message', 'Unknown error')
+        error_code = error_details.get('error', {}).get('code')
+
+        if error_code == 403:  # Permission denied
+            error_message = (
+                f"Permission denied: {error_message}\n\n"
+                "To revoke approved requests, you need the following IAM permissions:\n"
+                "1. accessapproval.approvalRequests.invalidate\n"
+                "2. accessapproval.settings.update\n\n"
+                "To grant these permissions:\n"
+                "1. Visit the IAM & Admin console:\n"
+                "   https://console.cloud.google.com/iam-admin/iam\n"
+                "2. Find your account or service account\n"
+                "3. Add the 'Access Approval Admin' role\n"
+                "   (or add the specific permissions listed above)\n\n"
+                "For more information, see:\n"
+                "https://cloud.google.com/access-approval/docs/access-control"
+            )
+        elif error_code == 404:  # Request not found
+            error_message = (
+                f"Request not found: {error_message}\n"
+                "The specified approval request may have expired or been deleted.\n"
+                "Use --state ALL to list all available requests."
+            )
+        elif error_code == 400:  # Invalid request
+            error_message = (
+                f"Invalid request: {error_message}\n"
+                "Please check that the request name is in the correct format:\n"
+                "projects/[PROJECT_ID]/approvalRequests/[REQUEST_ID]"
+            )
+        elif error_code == 409:  # Conflict
+            error_message = (
+                f"Conflict error: {error_message}\n"
+                "This usually means the request is not in an APPROVED state,\n"
+                "has already been revoked, or has expired."
+            )
+
+        logger.error(f"Failed to revoke request: {error_message}")
+        return False
+
+def export_requests(requests: List[Dict], format: str, output_path: str = None):
+    """
+    Export approval requests to JSON or CSV format.
+
+    Args:
+        requests: List of approval request dictionaries
+        format: Output format ('json' or 'csv')
+        output_path: Optional output file path
+    """
+    if not output_path:
+        output_path = f"approval_requests.{format}"
+
+    try:
+        if format == 'json':
+            with open(output_path, 'w') as f:
+                json.dump(requests, f, indent=2)
+        else:  # CSV format
+            if not requests:
+                logger.warning("No requests to export")
+                return
+
+            # Extract fields from the first request to use as CSV headers
+            headers = ['name', 'state', 'requestTime', 'requestedResourceName',
+                      'requestedReason.type', 'requestedReason.detail',
+                      'requestedExpiration', 'requestedLocations']
+
+            with open(output_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                writer.writeheader()
+                for request in requests:
+                    # Flatten nested structures for CSV
+                    row = {
+                        'name': request.get('name'),
+                        'state': request.get('state', 'N/A'),
+                        'requestTime': request.get('requestTime'),
+                        'requestedResourceName': request.get('requestedResourceName'),
+                        'requestedReason.type': request.get('requestedReason', {}).get('type'),
+                        'requestedReason.detail': request.get('requestedReason', {}).get('detail'),
+                        'requestedExpiration': (
+                            request.get('requestedExpiration', {}).get('expireTime')
+                            if isinstance(request.get('requestedExpiration'), dict)
+                            else request.get('requestedExpiration')
+                        ),
+                        'requestedLocations': json.dumps(request.get('requestedLocations', {}))
+                    }
+                    writer.writerow(row)
+
+        logger.info(f"Successfully exported requests to {output_path}")
+    except Exception as e:
+        logger.error(f"Failed to export requests: {str(e)}")
+        raise
+
 def main():
     """
-    Main function to list approval requests.
+    Main function to list and manage approval requests.
     """
     try:
         # Parse command line arguments
@@ -216,12 +472,49 @@ def main():
         logger.info("Initializing Access Approval API client...")
         client = initialize_api_client(credentials)
 
+        # Handle approval request if specified
+        if args.approve:
+            if approve_request(client, args.approve):
+                print(f"Successfully approved request: {args.approve}")
+                return
+            else:
+                print(f"Failed to approve request: {args.approve}", file=sys.stderr)
+                if args.debug:
+                    logger.debug("For detailed error information, check the logs above.")
+                sys.exit(1)
+
+        # Handle dismiss request if specified
+        if args.dismiss:
+            if dismiss_request(client, args.dismiss):
+                print(f"Successfully dismissed request: {args.dismiss}")
+                return
+            else:
+                print(f"Failed to dismiss request: {args.dismiss}", file=sys.stderr)
+                if args.debug:
+                    logger.debug("For detailed error information, check the logs above.")
+                sys.exit(1)
+
+        # Handle revocation request if specified
+        if args.revoke:
+            if revoke_request(client, args.revoke):
+                print(f"Successfully revoked approved request: {args.revoke}")
+                return
+            else:
+                print(f"Failed to revoke request: {args.revoke}", file=sys.stderr)
+                if args.debug:
+                    logger.debug("For detailed error information, check the logs above.")
+                sys.exit(1)
+
         # Get approval requests
         logger.info(f"Fetching approval requests for project: {project_id}")
         approval_requests = get_approval_requests(client, project_id, args.state)
 
-        # Display results
-        display_approval_requests(approval_requests, args.state)
+        # Export if requested
+        if args.export:
+            export_requests(approval_requests, args.export, args.output)
+        else:
+            # Display results
+            display_approval_requests(approval_requests, args.state)
 
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)
