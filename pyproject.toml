@@ -9,8 +9,6 @@ dependencies = [
     "google-auth>=2.38.0",
     "pytest>=8.3.4",
     "halo>=0.0.31",
-    "flask-login>=0.6.3",
-    "oauthlib>=3.2.2",
 ]
 
 [project.urls]

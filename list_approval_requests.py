@@ -46,114 +46,45 @@ def parse_arguments():
 
 def setup_credentials():
     """
-    Set up Google Cloud credentials using user credentials (OAuth 2.0)
-    or service account key file as fallback.
+    Set up Google Cloud credentials using default application credentials
+    or service account key file.
     """
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request
-    from google.oauth2.credentials import Credentials
-    import os.path
-    import pickle
-
-    SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
-    creds = None
-
-    # Try to load cached credentials
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-
-    # If credentials don't exist or are invalid, let's go through the OAuth flow
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                logger.debug(f"Failed to refresh credentials: {e}")
-                creds = None
-
-        if not creds:
-            try:
-                # Look for client configuration file
-                if os.path.exists('client_secret.json'):
-                    flow = InstalledAppFlow.from_client_secrets_file('client_secret.json', SCOPES)
-                    creds = flow.run_local_server(port=0)
-
-                    # Save the credentials for future use
-                    with open('token.pickle', 'wb') as token:
-                        pickle.dump(creds, token)
-
-                    logger.info("Successfully authenticated using OAuth 2.0")
-                else:
-                    logger.warning("No client_secret.json found for OAuth authentication")
-                    raise FileNotFoundError("client_secret.json not found")
-            except Exception as oauth_error:
-                logger.debug(f"OAuth authentication failed: {oauth_error}")
-                logger.info("Falling back to service account authentication")
-
-                # Fall back to service account credentials
-                key_path_or_content = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-                if not key_path_or_content:
-                    raise Exception(
-                        "No credentials found. Please either:\n"
-                        "1. Set up OAuth 2.0 credentials:\n"
-                        "   - Visit Google Cloud Console > APIs & Services > Credentials\n"
-                        "   - Create OAuth 2.0 Client ID (Desktop application)\n"
-                        "   - Download client configuration as 'client_secret.json'\n"
-                        "   - Place it in the same directory as this script\n"
-                        "\nOR\n\n"
-                        "2. Use service account authentication:\n"
-                        "   - Set GOOGLE_APPLICATION_CREDENTIALS environment variable\n"
-                        "   - Point it to your service account key file"
-                    )
-
-                try:
-                    # First try to parse as JSON content
-                    try:
-                        info = json.loads(key_path_or_content)
-                        credentials = service_account.Credentials.from_service_account_info(
-                            info,
-                            scopes=SCOPES
-                        )
-                        return credentials, info.get('project_id')
-                    except json.JSONDecodeError:
-                        # If not valid JSON, try as file path
-                        if not os.path.exists(key_path_or_content):
-                            raise Exception(
-                                f"Service account key file not found at: {key_path_or_content}"
-                            )
-                        credentials = service_account.Credentials.from_service_account_file(
-                            key_path_or_content,
-                            scopes=SCOPES
-                        )
-                        with open(key_path_or_content, 'r') as f:
-                            project_id = json.load(f).get('project_id')
-                        return credentials, project_id
-                except Exception as e:
-                    raise Exception(f"Failed to setup service account credentials: {str(e)}")
-
-    # For user credentials, we need to get the project ID separately
     try:
-        _, project_id = google.auth.default()
-        if not project_id:
-            # If project_id is not set in application default credentials,
-            # try to get it from gcloud config
-            import subprocess
-            try:
-                project_id = subprocess.check_output(
-                    ['gcloud', 'config', 'get-value', 'project'],
-                    stderr=subprocess.STDOUT
-                ).decode().strip()
-            except:
-                raise Exception(
-                    "Could not determine project ID. Please either:\n"
-                    "1. Set it using 'gcloud config set project PROJECT_ID'\n"
-                    "2. Specify it in your application default credentials"
-                )
-    except Exception as e:
-        raise Exception(f"Failed to get project ID: {str(e)}")
+        # First try application default credentials
+        credentials, _ = google.auth.default()
+        return credentials, "320306361664"  # Using the specific project ID
+    except DefaultCredentialsError:
+        # If no default credentials, look for service account key file or content
+        key_path_or_content = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+        if not key_path_or_content:
+            raise Exception(
+                "No credentials found. Please set GOOGLE_APPLICATION_CREDENTIALS "
+                "environment variable to point to your service account key file "
+                "or contain the service account JSON content."
+            )
 
-    return creds, project_id
+        try:
+            # First try to parse as JSON content
+            try:
+                info = json.loads(key_path_or_content)
+                credentials = service_account.Credentials.from_service_account_info(
+                    info,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
+                return credentials, "320306361664"  # Using the specific project ID
+            except json.JSONDecodeError:
+                # If not valid JSON, try as file path
+                if not os.path.exists(key_path_or_content):
+                    raise Exception(
+                        f"Service account key file not found at: {key_path_or_content}"
+                    )
+                credentials = service_account.Credentials.from_service_account_file(
+                    key_path_or_content,
+                    scopes=['https://www.googleapis.com/auth/cloud-platform']
+                )
+                return credentials, "320306361664"  # Using the specific project ID
+        except Exception as e:
+            raise Exception(f"Failed to setup credentials: {str(e)}")
 
 def initialize_api_client(credentials):
     """
